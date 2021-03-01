@@ -10,18 +10,13 @@ import hmac
 
 from intelmq.lib.bot import CollectorBot
 from intelmq.lib.cache import Cache
-from intelmq.lib.utils import create_request_session
+from intelmq.lib.mixins import HttpMixin
 from intelmq.lib.exceptions import MissingDependencyError
-
-try:
-    import requests
-except ImportError:
-    requests = None
 
 APIROOT = 'https://transform.shadowserver.org/api2/'
 
 
-class ShadowServerAPICollectorBot(CollectorBot):
+class ShadowServerAPICollectorBot(CollectorBot, HttpMixin):
     """
     Connects to the Shadowserver API, requests a list of all the reports for a specific country and processes the ones that are new
 
@@ -60,9 +55,6 @@ class ShadowServerAPICollectorBot(CollectorBot):
 
         self.preamble = '{{ "apikey": "{}" '.format(self.api_key)
 
-        self.set_request_parameters()
-        self.session = create_request_session(self)
-
         self.cache = Cache(self.redis_cache_host,
                            self.redis_cache_port,
                            self.redis_cache_db,
@@ -95,7 +87,7 @@ class ShadowServerAPICollectorBot(CollectorBot):
         data += '}'
         self.logger.debug('Downloading report list with data: %s.', data)
 
-        response = self.session.post(APIROOT + 'reports/list', data=data, headers=self._headers(data))
+        response = self.http_session().post(APIROOT + 'reports/list', data=data, headers=self._headers(data))
         response.raise_for_status()
 
         reports = response.json()
@@ -118,7 +110,7 @@ class ShadowServerAPICollectorBot(CollectorBot):
         data += ',"id": "{}"}}'.format(reportid)
         self.logger.debug('Downloading report with data: %s.', data)
 
-        response = self.session.post(APIROOT + 'reports/download', data=data, headers=self._headers(data))
+        response = self.http_session().post(APIROOT + 'reports/download', data=data, headers=self._headers(data))
         response.raise_for_status()
 
         return response.text
