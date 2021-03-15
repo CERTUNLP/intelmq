@@ -34,10 +34,13 @@ from typing import Any, Dict, Generator, Iterator, Optional, Sequence, Union
 import dateutil.parser
 from dateutil.relativedelta import relativedelta
 from termstyle import red
+from ruamel.yaml import YAML
 
 import intelmq
 from intelmq.lib.exceptions import DecodingError
 from intelmq import DEFAULTS_CONF_FILE
+
+yaml = YAML(typ="safe", pure=True)
 
 __all__ = ['base64_decode', 'base64_encode', 'decode', 'encode',
            'load_configuration', 'load_parameters', 'log', 'parse_logline',
@@ -199,7 +202,7 @@ def load_configuration(configuration_filepath: str) -> dict:
     """
     if os.path.exists(configuration_filepath):
         with open(configuration_filepath, 'r') as fpconfig:
-            config = json.load(fpconfig)
+            config = yaml.load(fpconfig)
     else:
         raise ValueError('File not found: %r.' % configuration_filepath)
     return config
@@ -233,10 +236,7 @@ def write_configuration(configuration_filepath: str,
     if not new and backup:
         shutil.copy2(configuration_filepath, configuration_filepath + '.bak')
     with open(configuration_filepath, 'w') as handle:
-        json.dump(content, fp=handle, indent=4,
-                  sort_keys=True,
-                  separators=(',', ': '))
-        handle.write('\n')
+        yaml.dump(content, handle)
 
 
 def load_parameters(*configs: dict) -> Parameters:
