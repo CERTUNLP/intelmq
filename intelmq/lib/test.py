@@ -8,6 +8,7 @@ some basic generic tests (logged errors, correct pipeline setup).
 import io
 import inspect
 import json
+import msgpack
 import os
 import re
 import unittest
@@ -150,8 +151,7 @@ class BotTestCase(object):
         elif cls.bot_type != 'collector' and cls.default_input_message == '':
             cls.default_input_message = {'__type': 'Event'}
         if type(cls.default_input_message) is dict:
-            cls.default_input_message = \
-                utils.decode(json.dumps(cls.default_input_message))
+            cls.default_input_message = msgpack.packb(cls.default_input_message)
 
         if cls.use_cache and not os.environ.get('INTELMQ_SKIP_REDIS'):
             password = os.environ.get('INTELMQ_TEST_REDIS_PASSWORD') or \
@@ -168,10 +168,10 @@ class BotTestCase(object):
     harmonization = utils.load_configuration(pkg_resources.resource_filename('intelmq',
                                                                              'etc/harmonization.conf'))
 
-    def new_report(self, auto=False, examples=False):
+    def new_report(self, auto=False, examples=False) -> message.Report:
         return message.Report(harmonization=self.harmonization, auto=auto)
 
-    def new_event(self):
+    def new_event(self) -> message.Event:
         return message.Event(harmonization=self.harmonization)
 
     def get_mocked_logger(self, logger):
@@ -240,7 +240,7 @@ class BotTestCase(object):
             self.input_queue = []
             for msg in self.input_message:
                 if type(msg) is dict:
-                    self.input_queue.append(json.dumps(msg))
+                    self.input_queue.append(message.MessageFactory.serialize(msg))
                 elif issubclass(type(msg), message.Message):
                     self.input_queue.append(msg.serialize())
                 else:
@@ -315,8 +315,8 @@ class BotTestCase(object):
 
         """ Test if report has required fields. """
         if self.bot_type == 'collector':
-            for report_json in self.get_output_queue():
-                report = message.MessageFactory.unserialize(report_json,
+            for report_data in self.get_output_queue():
+                report = message.MessageFactory.unserialize(report_data,
                                                             harmonization=self.harmonization)
                 self.assertIsInstance(report, message.Report)
                 self.assertIn('raw', report)
@@ -324,8 +324,8 @@ class BotTestCase(object):
 
         """ Test if event has required fields. """
         if self.bot_type == 'parser':
-            for event_json in self.get_output_queue():
-                event = message.MessageFactory.unserialize(event_json,
+            for event_data in self.get_output_queue():
+                event = message.MessageFactory.unserialize(event_data,
                                                            harmonization=self.harmonization)
                 self.assertIsInstance(event, message.Event)
                 self.assertIn('classification.type', event)
@@ -383,7 +383,7 @@ class BotTestCase(object):
         """Getter for items in the output queues of this bot. Use in TestCase scenarios
             If there is multiple queues in named queue group, we return all the items chained.
         """
-        return [utils.decode(text) for text in chain(*[self.pipe.state[x] for x in self.pipe.destination_queues[path]])]
+        return [text for text in chain(*[self.pipe.state[x] for x in self.pipe.destination_queues[path]])]
         # return [utils.decode(text) for text in self.pipe.state["%s-output" % self.bot_id]]
 
     def test_bot_name(self, *args, **kwargs):
@@ -514,9 +514,9 @@ class BotTestCase(object):
         given queue position.
         """
         event = self.get_output_queue(path=path)[queue_pos]
-        self.assertIsInstance(event, str)
+        self.assertIsInstance(event, bytes)
 
-        event_dict = json.loads(event)
+        event_dict = msgpack.unpackb(event)
         if isinstance(expected_msg, (message.Event, message.Report)):
             expected = expected_msg.to_dict(with_type=True)
         else:

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import unittest
 import json
+import msgpack
 
 import intelmq.lib.test as test
 from intelmq.bots.experts.idea.expert import IdeaExpertBot
@@ -82,8 +83,8 @@ class TestIdeaExpertBot(test.BotTestCase, unittest.TestCase):
         # The ID in the generated Idea event is random, so we have to extract
         # the data from the "output" field and compare after removing ID's
         event = self.get_output_queue()[0]
-        self.assertIsInstance(event, str)
-        event_dict = json.loads(event)
+        self.assertIsInstance(event, bytes)
+        event_dict = msgpack.loads(event)
         self.assertIsInstance(event_dict, dict)
         self.assertTrue("output" in event_dict)
         idea_event = json.loads(event_dict["output"])

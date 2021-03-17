@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import json
+import msgpack
 import unittest
 
 import intelmq.lib.test as test
@@ -89,7 +89,7 @@ class TestCymruExpertBot(test.BotTestCase, unittest.TestCase):
         """
         self.input_message = EXAMPLE_6TO4_INPUT
         self.run_bot()
-        actual = json.loads(self.get_output_queue()[0])
+        actual = msgpack.loads(self.get_output_queue()[0])
         self.assertDictContainsSubset(EXAMPLE_6TO4_INPUT, actual)
         self.assertIn("source.asn", actual)
         self.assertIn("source.as_name", actual)
